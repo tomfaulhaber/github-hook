@@ -9,15 +9,26 @@
    [clojure.contrib.shell-out :only (sh)]
    [com.infolace.parse-params :only (parse-params)]))
 
+;;; Preserve out so we can spew out logging data even when ring has
+;;; rebound *out*
+
 (def myout *out*)
 
-(defn print-date []
+(defn print-date 
+  "Display a formatted version of the current date and time on the stream myout"
+  []
   (let [d (java.util.Date.)]
     (cl-format myout "~%~{~a ~a~}:~%"
                (map #(.format % (java.util.Date.)) 
                     [(java.text.DateFormat/getDateInstance)
                      (java.text.DateFormat/getTimeInstance)]))))
-(defn app [fill req]
+
+(defn app 
+  "The function invoked by ring to process a single request, req. It does a check to make
+sure that it's really a webhook request (post to the right address) and, if so, calls fill
+with the parsed javascript parameters (this will queue up the request for later processing.
+Then it returns the appropriate status andd header info to be sent back to the client."
+  [fill req]
   (print-date)
   (pprint req myout)
   (if (and (= (:scheme req) :http),
@@ -32,20 +43,9 @@
     {:status  404
      :headers {"Content-Type" "text/html"}}))
 
-
-(comment
-  (ring.jetty/run {:port 8080} app)
-)
-
-(def action-table
-     [[[:repository :url] "http://github.com/richhickey/clojure-contrib"
-       [:ref] "refs/heads/master"
-       {:cmd ["ant"] :dir "/home/tom/src/clj/contrib-autodoc"}]
-      [[:repository :url] "http://github.com/tomfaulhaber/hook-test"
-       [:ref] "refs/heads/master"
-       {:cmd ["echo" "got here"] :dir "/home/tom/src/clj/contrib-autodoc"}]])
-
-(defn match-elem [m elem]
+(defn match-elem
+  "Determine whether a given request, m, matches the action table element, elem."
+  [m elem]
   (loop [elem elem]
     (let [ks (first elem)
           rem (next elem)]
@@ -54,16 +54,25 @@
         (when (= (reduce #(get %1 %2) m ks) (first rem))
           (recur (next rem)))))))
 
-(defn match-table [m]
+(defn match-table 
+  "Match a request, m, against the action-table"
+  [m]
   (some #(match-elem m %) action-table))
 
-(defn handle-payload [payload]
+(defn handle-payload 
+  "Called when a request is dequeued with the parsed json payload. Sees if the
+request matches anything in the action-table and, if so, executes the associated shell
+command."
+  [payload]
   (pprint payload myout)
   (when-let [params (match-table payload)]
     (cl-format myout "~a~%" (apply sh (concat  (:cmd params) [:dir (:dir params)])))))
 
-(defn hook-server [port]
+(defn hook-server 
+  "Build a simple webhook server on the specified port. Invokes ring to fill a blocking queue,
+whose elements are processed by handle-payload."
+  [port]
   (doseq [payload (fill-queue (fn [fill]
-                                (cl-format myout "here ~d~%" port)
-                                (ring.jetty/run {:port port} (partial app fill))))]
+                                (ring.jetty/run {:port port} (partial app fill)))
+                              :queue-size 10)]
     (handle-payload payload)))
