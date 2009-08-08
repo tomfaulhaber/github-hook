@@ -43,6 +43,15 @@ Then it returns the appropriate status andd header info to be sent back to the c
     {:status  404
      :headers {"Content-Type" "text/html"}}))
 
+(def action-table
+     [[[:repository :url] "http://github.com/richhickey/clojure-contrib"
+       [:ref] "refs/heads/master"
+       {:cmd ["ant"] :dir "/home/tom/src/clj/contrib-autodoc"}]
+      [[:repository :url] "http://github.com/tomfaulhaber/hook-test"
+       [:ref] "refs/heads/master"
+       {:cmd ["echo" "got here"] :dir "/home/tom/src/clj/contrib-autodoc"}]])
+
+
 (defn match-elem
   "Determine whether a given request, m, matches the action table element, elem."
   [m elem]
