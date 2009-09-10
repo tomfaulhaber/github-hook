@@ -27,10 +27,11 @@
   "The function invoked by ring to process a single request, req. It does a check to make
 sure that it's really a webhook request (post to the right address) and, if so, calls fill
 with the parsed javascript parameters (this will queue up the request for later processing.
-Then it returns the appropriate status andd header info to be sent back to the client."
+Then it returns the appropriate status and header info to be sent back to the client."
   [fill req]
   (print-date)
   (pprint req myout)
+  (cl-format myout "~%")
   (if (and (= (:scheme req) :http),
            (= (:request-method req) :post),
            (= (:query-string req) nil),
@@ -60,7 +61,7 @@ Then it returns the appropriate status andd header info to be sent back to the c
           rem (next elem)]
       (if (nil? rem)
         ks
-        (when (= (reduce #(get %1 %2) m ks) (first rem))
+        (when (= (apply get-in m ks) (first rem))
           (recur (next rem)))))))
 
 (defn match-table 
