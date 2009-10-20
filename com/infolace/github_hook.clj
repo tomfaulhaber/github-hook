@@ -61,7 +61,7 @@ Then it returns the appropriate status and header info to be sent back to the cl
           rem (next elem)]
       (if (nil? rem)
         ks
-        (when (= (apply get-in m ks) (first rem))
+        (when (= (apply get-in m ks []) (first rem))
           (recur (next rem)))))))
 
 (defn match-table 
