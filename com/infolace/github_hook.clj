@@ -51,6 +51,9 @@ Then it returns the appropriate status and header info to be sent back to the cl
       [[:repository :url] "http://github.com/richhickey/clojure"
        [:ref] "refs/heads/master"
        {:cmd ["ant" "-Dparam-dir=params/clojure"] :dir "/home/tom/src/clj/autodoc-stable"}]
+      [[:repository :url] "http://github.com/liebke/incanter"
+       [:ref] "refs/heads/master"
+       {:cmd ["ant" "-Dparam-dir=params/incanter"] :dir "/home/tom/src/clj/autodoc-stable"}]
       [[:repository :url] "http://github.com/tomfaulhaber/hook-test"
        [:ref] "refs/heads/master"
        {:cmd ["echo" "got here"] :dir "/home/tom/src/clj/contrib-autodoc"}]])
