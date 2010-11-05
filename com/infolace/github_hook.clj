@@ -45,15 +45,15 @@ Then it returns the appropriate status and header info to be sent back to the cl
      :headers {"Content-Type" "text/html"}}))
 
 (def action-table
-     [[[:repository :url] "http://github.com/richhickey/clojure-contrib"
+     [[[:repository :url] "http://github.com/clojure/clojure-contrib"
        [:ref] "refs/heads/master"
-       {:cmd ["ant" "-Dparam-dir=params/clojure-contrib"] :dir "/home/tom/src/clj/autodoc-stable"}]
-      [[:repository :url] "http://github.com/richhickey/clojure"
+       {:cmd ["sh" "./run.sh" "clojure-contrib"] :dir "/home/tom/src/clj/autodoc-stable"}]
+      [[:repository :url] "http://github.com/clojure/clojure"
        [:ref] "refs/heads/master"
-       {:cmd ["ant" "-Dparam-dir=params/clojure"] :dir "/home/tom/src/clj/autodoc-stable"}]
+       {:cmd ["sh" "./run.sh" "clojure"] :dir "/home/tom/src/clj/autodoc-stable"}]
       [[:repository :url] "http://github.com/liebke/incanter"
        [:ref] "refs/heads/master"
-       {:cmd ["ant" "-Dparam-dir=params/incanter"] :dir "/home/tom/src/clj/autodoc-stable"}]
+       {:cmd ["sh" "./run.sh" "incanter"] :dir "/home/tom/src/clj/autodoc-stable"}]
       [[:repository :url] "http://github.com/tomfaulhaber/hook-test"
        [:ref] "refs/heads/master"
        {:cmd ["echo" "got here"] :dir "/home/tom/src/clj/contrib-autodoc"}]])
