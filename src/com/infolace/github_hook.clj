@@ -1,5 +1,7 @@
 (ns com.infolace.github-hook
-  (:require (ring dump jetty) 
+  (:gen-class)
+  (:require [ring.handler.dump]
+            [ring.adapter.jetty]
             [clojure.contrib.repl-utils :as ru]
             (org.danlarkin [json :as json]))
   (:use 
@@ -89,6 +91,9 @@ command."
 whose elements are processed by handle-payload."
   [port]
   (doseq [payload (fill-queue (fn [fill]
-                                (ring.jetty/run {:port port} (partial app fill)))
+                                (ring.adapter.jetty/run-jetty (partial app fill) {:port port}))
                               :queue-size 10)]
     (handle-payload payload)))
+
+(defn -main []
+  (hook-server 8080))
