@@ -90,7 +90,7 @@ command."
     ;;(cl-format myout "matched: ~%~W~%" params)
     (cl-format myout "matched: ~%") (pprint params myout) (cl-format myout "~%")
     (cl-format myout "~a~%" (apply sh (concat  (:cmd params) [:dir (:dir params)])))
-    (cl-format myout "Execution complete~%----------------------------------------")))
+    (cl-format myout "Execution complete~%----------------------------------------~%")))
 
 (defn hook-server 
   "Build a simple webhook server on the specified port. Invokes ring to fill a blocking queue,
