@@ -83,8 +83,14 @@ request matches anything in the action-table and, if so, executes the associated
 command."
   [payload]
   (pprint payload myout)
+  (cl-format myout "~%")
   (when-let [params (match-table payload)]
-    (cl-format myout "~a~%" (apply sh (concat  (:cmd params) [:dir (:dir params)])))))
+    ;; The following throws an exception (in 1.1) since ~W doesn't cause myout to get wrapped.
+    ;; Need to test it with clojure.pprint in master and see if it's been fixed (or fix it!)
+    ;;(cl-format myout "matched: ~%~W~%" params)
+    (cl-format myout "matched: ~%") (pprint params myout) (cl-format myout "~%")
+    (cl-format myout "~a~%" (apply sh (concat  (:cmd params) [:dir (:dir params)])))
+    (cl-format myout "Execution complete~%----------------------------------------")))
 
 (defn hook-server 
   "Build a simple webhook server on the specified port. Invokes ring to fill a blocking queue,
