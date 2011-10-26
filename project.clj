@@ -5,5 +5,4 @@
   :dependencies [[org.clojure/clojure "1.2.0"]
                  [org.clojure/clojure-contrib "1.2.0"]
                  [org.danlarkin/clojure-json "1.2-SNAPSHOT"]
-                 [ring/ring "0.3.3"]]
-  :dev-dependencies [[swank-clojure "1.2.1"]])
+                 [ring/ring "0.3.3"]])
