@@ -46,17 +46,25 @@ Then it returns the appropriate status and header info to be sent back to the cl
     {:status  404
      :headers {"Content-Type" "text/html"}}))
 
+(defn autodoc
+  ([project] (autodoc project "https://github.com/clojure"))
+  ([project url]
+     [[:repository :url] (str url "/" project)
+      [:ref] "refs/heads/master"
+      {:cmd ["sh" "./run.sh" project] :dir "/home/tom/src/clj/autodoc-stable"}])
+  )
+
 (def action-table
-     [[[:repository :url] "https://github.com/clojure/clojure-contrib"
-       [:ref] "refs/heads/master"
-       {:cmd ["sh" "./run.sh" "clojure-contrib"] :dir "/home/tom/src/clj/autodoc-stable"}]
-      [[:repository :url] "https://github.com/clojure/clojure"
-       [:ref] "refs/heads/master"
-       {:cmd ["sh" "./run.sh" "clojure"] :dir "/home/tom/src/clj/autodoc-stable"}]
-      [[:repository :url] "https://github.com/liebke/incanter"
-       [:ref] "refs/heads/master"
-       {:cmd ["sh" "./run.sh" "incanter"] :dir "/home/tom/src/clj/autodoc-stable"}]
-      [[:repository :url] "https://github.com/tomfaulhaber/hook-test"
+  [(autodoc "clojure")
+   (autodoc "incanter" "https://github.com/liebke")
+   (autodoc "algo.monads")
+   (autodoc "data.json")
+   (autodoc "java.classpath")
+   (autodoc "java.jdbc")
+   (autodoc "tools.logging")
+   (autodoc "tools.macros")
+   (autodoc "tools.nrepl")
+   [[:repository :url] "https://github.com/tomfaulhaber/hook-test"
        [:ref] "refs/heads/master"
        {:cmd ["echo" "got here"] :dir "/home/tom/src/clj/contrib-autodoc"}]])
 
