@@ -4,7 +4,7 @@
             [ring.adapter.jetty]
             [clojure.contrib.repl-utils :as ru]
             (org.danlarkin [json :as json]))
-  (:use 
+  (:use
    [clojure.contrib.pprint :only (pprint cl-format)]
    [clojure.contrib.duck-streams :only (slurp*)]
    [clojure.contrib.seq-utils :only (fill-queue)]
@@ -16,16 +16,16 @@
 
 (def myout *out*)
 
-(defn print-date 
+(defn print-date
   "Display a formatted version of the current date and time on the stream myout"
   []
   (let [d (java.util.Date.)]
     (cl-format myout "~%~{~a ~a~}:~%"
-               (map #(.format % (java.util.Date.)) 
+               (map #(.format % (java.util.Date.))
                     [(java.text.DateFormat/getDateInstance)
                      (java.text.DateFormat/getTimeInstance)]))))
 
-(defn app 
+(defn app
   "The function invoked by ring to process a single request, req. It does a check to make
 sure that it's really a webhook request (post to the right address) and, if so, calls fill
 with the parsed javascript parameters (this will queue up the request for later processing.
@@ -38,7 +38,7 @@ Then it returns the appropriate status and header info to be sent back to the cl
            (= (:request-method req) :post),
            (= (:query-string req) nil),
            (= (:content-type req) "application/x-www-form-urlencoded"),
-           (= (:uri req) "/github-post")) 
+           (= (:uri req) "/github-post"))
     ;; TODO: respond correctly to the client when an exception is thrown
     (do (fill (json/decode-from-str (:payload (parse-params (slurp* (:body req)) #"&"))))
         {:status  200
@@ -51,22 +51,27 @@ Then it returns the appropriate status and header info to be sent back to the cl
   ([project url]
      [[:repository :url] (str url "/" project)
       [:ref] "refs/heads/master"
-      {:cmd ["sh" "./run.sh" project] :dir "/home/tom/src/clj/autodoc-stable"}])
-  )
+      {:cmd ["sh" "./run.sh" project] :dir "/home/tom/src/clj/autodoc-stable"}]))
 
 (def action-table
   [(autodoc "clojure")
    (autodoc "incanter" "https://github.com/liebke")
    (autodoc "algo.generic")
    (autodoc "algo.monads")
+   (autodoc "core.async")
    (autodoc "core.cache")
+   (autodoc "core.contracts")
    (autodoc "core.incubator")
+   (autodoc "core.logic")
    (autodoc "core.match")
    (autodoc "core.memoize")
+   (autodoc "core.rrb-vector")
+   (autodoc "core.typed")
    (autodoc "core.unify")
    (autodoc "data.codec")
    (autodoc "data.csv")
    (autodoc "data.finger-tree")
+   (autodoc "data.generators")
    (autodoc "data.json")
    (autodoc "data.priority-map")
    (autodoc "data.xml")
@@ -78,12 +83,16 @@ Then it returns the appropriate status and header info to be sent back to the cl
    (autodoc "math.combinatorics")
    (autodoc "math.numeric-tower")
    (autodoc "test.generative")
+   (autodoc "tools.analyzer")
+   (autodoc "tools.analyzer.jvm")
+   (autodoc "tools.emitter.jvm")
    (autodoc "tools.cli")
    (autodoc "tools.logging")
    (autodoc "tools.macro")
    (autodoc "tools.namespace")
-   (autodoc "tools.trace")
    (autodoc "tools.nrepl")
+   (autodoc "tools.reader")
+   (autodoc "tools.trace")
    [[:repository :url] "https://github.com/tomfaulhaber/hook-test"
        [:ref] "refs/heads/master"
        {:cmd ["echo" "got here"] :dir "/home/tom/src/clj/contrib-autodoc"}]])
@@ -100,12 +109,12 @@ Then it returns the appropriate status and header info to be sent back to the cl
         (when (= (apply get-in m ks []) (first rem))
           (recur (next rem)))))))
 
-(defn match-table 
+(defn match-table
   "Match a request, m, against the action-table"
   [m]
   (some #(match-elem m %) action-table))
 
-(defn handle-payload 
+(defn handle-payload
   "Called when a request is dequeued with the parsed json payload. Sees if the
 request matches anything in the action-table and, if so, executes the associated shell
 command."
@@ -120,7 +129,7 @@ command."
     (cl-format myout "~a~%" (apply sh (concat  (:cmd params) [:dir (:dir params)])))
     (cl-format myout "Execution complete~%----------------------------------------~%")))
 
-(defn hook-server 
+(defn hook-server
   "Build a simple webhook server on the specified port. Invokes ring to fill a blocking queue,
 whose elements are processed by handle-payload."
   [port]
