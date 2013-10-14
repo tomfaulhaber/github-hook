@@ -2,14 +2,12 @@
   (:gen-class)
   (:require [ring.handler.dump]
             [ring.adapter.jetty]
-            [clojure.contrib.repl-utils :as ru]
-            (org.danlarkin [json :as json]))
-  (:use
-   [clojure.contrib.pprint :only (pprint cl-format)]
-   [clojure.contrib.duck-streams :only (slurp*)]
-   [clojure.contrib.seq-utils :only (fill-queue)]
-   [clojure.contrib.shell-out :only (sh)]
-   [com.infolace.parse-params :only (parse-params)]))
+            [clojure.java.shell :as shell]
+            [clojure.pprint :as pp]
+            [clojure.data.json :as json])
+  (:use [com.infolace.parse-params :only (parse-params)])
+  (:import [java.util.concurrent LinkedBlockingQueue TimeUnit]
+           [java.lang.ref WeakReference]))
 
 ;;; Preserve out so we can spew out logging data even when ring has
 ;;; rebound *out*
@@ -20,10 +18,51 @@
   "Display a formatted version of the current date and time on the stream myout"
   []
   (let [d (java.util.Date.)]
-    (cl-format myout "~%~{~a ~a~}:~%"
+    (pp/cl-format myout "~%~{~a ~a~}:~%"
                (map #(.format % (java.util.Date.))
                     [(java.text.DateFormat/getDateInstance)
                      (java.text.DateFormat/getTimeInstance)]))))
+
+;;; I moved fill-queue here from the old clojure-contrib seq-utils
+;;; since it got dropped from during the contrib conversion
+
+; based on work related to Rich Hickey's seque.
+; blame Chouser for anything broken or ugly.
+(defn fill-queue
+  "filler-func will be called in another thread with a single arg
+'fill'. filler-func may call fill repeatedly with one arg each
+time which will be pushed onto a queue, blocking if needed until
+this is possible. fill-queue will return a lazy seq of the values
+filler-func has pushed onto the queue, blocking if needed until each
+next element becomes available. filler-func's return value is ignored."
+  ([filler-func & optseq]
+    (let [opts (apply array-map optseq)
+          apoll (:alive-poll opts 1)
+          q (LinkedBlockingQueue. (:queue-size opts 1))
+          NIL (Object.) ;nil sentinel since LBQ doesn't support nils
+          weak-target (Object.)
+          alive? (WeakReference. weak-target)
+          fill (fn fill [x]
+                 (if (.get alive?)
+                   (if (.offer q (if (nil? x) NIL x) apoll TimeUnit/SECONDS)
+                     x
+                     (recur x))
+                   (throw (Exception. "abandoned"))))
+          f (future
+              (try
+                (filler-func fill)
+                (finally
+                  (.put q q))) ;q itself is eos sentinel
+              nil)] ; set future's value to nil
+      ((fn drain []
+         weak-target ; force closing over this object
+         (lazy-seq
+           (let [x (.take q)]
+             (if (identical? x q)
+               @f ;will be nil, touch just to propagate errors
+               (cons (if (identical? x NIL) nil x)
+                     (drain))))))))))
+
 
 (defn app
   "The function invoked by ring to process a single request, req. It does a check to make
@@ -32,15 +71,15 @@ with the parsed javascript parameters (this will queue up the request for later 
 Then it returns the appropriate status and header info to be sent back to the client."
   [fill req]
   (print-date)
-  (pprint req myout)
-  (cl-format myout "~%")
+  (pp/pprint req myout)
+  (pp/cl-format myout "~%")
   (if (and (= (:scheme req) :http),
            (= (:request-method req) :post),
            (= (:query-string req) nil),
            (= (:content-type req) "application/x-www-form-urlencoded"),
            (= (:uri req) "/github-post"))
     ;; TODO: respond correctly to the client when an exception is thrown
-    (do (fill (json/decode-from-str (:payload (parse-params (slurp* (:body req)) #"&"))))
+    (do (fill (json/read-str (:payload (parse-params (slurp (:body req)) #"&"))))
         {:status  200
          :headers {"Content-Type" "text/html"}})
     {:status  404
@@ -119,15 +158,15 @@ Then it returns the appropriate status and header info to be sent back to the cl
 request matches anything in the action-table and, if so, executes the associated shell
 command."
   [payload]
-  (pprint payload myout)
-  (cl-format myout "~%")
+  (pp/pprint payload myout)
+  (pp/cl-format myout "~%")
   (when-let [params (match-table payload)]
     ;; The following throws an exception (in 1.1) since ~W doesn't cause myout to get wrapped.
     ;; Need to test it with clojure.pprint in master and see if it's been fixed (or fix it!)
-    ;;(cl-format myout "matched: ~%~W~%" params)
-    (cl-format myout "matched: ~%") (pprint params myout) (cl-format myout "~%")
-    (cl-format myout "~a~%" (apply sh (concat  (:cmd params) [:dir (:dir params)])))
-    (cl-format myout "Execution complete~%----------------------------------------~%")))
+    ;;(pp/cl-format myout "matched: ~%~W~%" params)
+    (pp/cl-format myout "matched: ~%") (pp/pprint params myout) (pp/cl-format myout "~%")
+    (pp/cl-format myout "~a~%" (apply shell/sh (concat  (:cmd params) [:dir (:dir params)])))
+    (pp/cl-format myout "Execution complete~%----------------------------------------~%")))
 
 (defn hook-server
   "Build a simple webhook server on the specified port. Invokes ring to fill a blocking queue,

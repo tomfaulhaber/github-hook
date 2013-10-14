@@ -1,6 +1,5 @@
 (ns com.infolace.parse-params
-  (:use 
-   [clojure.contrib.str-utils :only (re-split)])
+  (:require [clojure.string :as str])
   (:import java.net.URLDecoder))
 
 ;;; This code was lifted from Compojure and allows us to parse the posted params
@@ -26,11 +25,10 @@
   [param-string separator]
   (reduce
     (fn [param-map s]
-      (let [[key val] (re-split #"=" s)]
+      (let [[key val] (str/split s #"=")]
         (assoc-vec param-map
           (keyword (urldecode key))
           (urldecode (or val "")))))
     {}
     (remove #(or (nil? %) (= % ""))
-      (re-split separator param-string))))
-
+      (str/split param-string separator))))
