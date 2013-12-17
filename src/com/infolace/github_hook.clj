@@ -121,6 +121,7 @@ Then it returns the appropriate status and header info to be sent back to the cl
          (autodoc "data.codec")
          (autodoc "data.csv")
          (autodoc "data.finger-tree")
+         (autodoc "data.fressian")
          (autodoc "data.generators")
          (autodoc "data.json")
          (autodoc "data.priority-map")
