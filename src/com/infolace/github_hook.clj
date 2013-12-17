@@ -2,10 +2,13 @@
   (:gen-class)
   (:require [ring.handler.dump]
             [ring.adapter.jetty]
-            [clojure.java.shell :as shell]
+            [clojure.data.json :as json]
+            [clojure.java.shell2 :as shell]
             [clojure.pprint :as pp]
-            [clojure.data.json :as json])
-  (:use [com.infolace.parse-params :only (parse-params)])
+            [clojure.string :as str])
+  (:use
+   [clojure.core.match :only [match]]
+   [com.infolace.parse-params :only (parse-params)])
   (:import [java.util.concurrent LinkedBlockingQueue TimeUnit]
            [java.lang.ref WeakReference]))
 
@@ -71,102 +74,122 @@ with the parsed javascript parameters (this will queue up the request for later 
 Then it returns the appropriate status and header info to be sent back to the client."
   [fill req]
   (print-date)
-  (pp/pprint req myout)
-  (pp/cl-format myout "~%")
-  (if (and (= (:scheme req) :http),
-           (= (:request-method req) :post),
-           (= (:query-string req) nil),
-           (= (:content-type req) "application/x-www-form-urlencoded"),
-           (= (:uri req) "/github-post"))
-    ;; TODO: respond correctly to the client when an exception is thrown
-    (do (fill (json/read-str (:payload (parse-params (slurp (:body req)) #"&"))))
-        {:status  200
-         :headers {"Content-Type" "text/html"}})
-    {:status  404
-     :headers {"Content-Type" "text/html"}}))
+  (match [req]
+         [{:scheme :http, :request-method :post, :query-string nil,
+           :content-type "application/x-www-form-urlencoded", :uri "/github-post"}]
+         (do (fill (json/read-str (:payload (parse-params (slurp (:body req)) #"&"))))
+             {:status  200
+              :headers {"Content-Type" "text/html"}})
+         :else
+         (do
+           (pp/cl-format myout "Spurious request received:~%~w~%" req)
+           (pp/cl-format myout "Input ignored~%----------------------------------------~%")
+           {:status  404
+            :headers {"Content-Type" "text/html"}})))
+
+(defn run
+  "Run a command and print the output"
+  [cmd-and-args dir]
+  (let [{:keys [exit]} (apply shell/sh (concat cmd-and-args
+                                               [:dir dir :out :pass :err :pass]))]
+    (when-not (zero? exit)
+      (pp/cl-format myout "ERROR: non-zero exit code: ~d~%" exit))))
 
 (defn autodoc
-  ([project] (autodoc project "https://github.com/clojure"))
-  ([project url]
-     [[:repository :url] (str url "/" project)
-      [:ref] "refs/heads/master"
+  ([project] (autodoc project "clojure"))
+  ([project owner]
+     [[project owner]
       {:cmd ["sh" "./run.sh" project] :dir "/home/tom/src/clj/autodoc-stable"}]))
 
-(def action-table
-  [(autodoc "clojure")
-   (autodoc "incanter" "https://github.com/liebke")
-   (autodoc "algo.generic")
-   (autodoc "algo.monads")
-   (autodoc "core.async")
-   (autodoc "core.cache")
-   (autodoc "core.contracts")
-   (autodoc "core.incubator")
-   (autodoc "core.logic")
-   (autodoc "core.match")
-   (autodoc "core.memoize")
-   (autodoc "core.rrb-vector")
-   (autodoc "core.typed")
-   (autodoc "core.unify")
-   (autodoc "data.codec")
-   (autodoc "data.csv")
-   (autodoc "data.finger-tree")
-   (autodoc "data.generators")
-   (autodoc "data.json")
-   (autodoc "data.priority-map")
-   (autodoc "data.xml")
-   (autodoc "data.zip")
-   (autodoc "java.classpath")
-   (autodoc "java.data")
-   (autodoc "java.jdbc")
-   (autodoc "java.jmx")
-   (autodoc "math.combinatorics")
-   (autodoc "math.numeric-tower")
-   (autodoc "test.generative")
-   (autodoc "tools.analyzer")
-   (autodoc "tools.analyzer.jvm")
-   (autodoc "tools.emitter.jvm")
-   (autodoc "tools.cli")
-   (autodoc "tools.logging")
-   (autodoc "tools.macro")
-   (autodoc "tools.namespace")
-   (autodoc "tools.nrepl")
-   (autodoc "tools.reader")
-   (autodoc "tools.trace")
-   [[:repository :url] "https://github.com/tomfaulhaber/hook-test"
-       [:ref] "refs/heads/master"
-       {:cmd ["echo" "got here"] :dir "/home/tom/src/clj/contrib-autodoc"}]])
+(def commit-actions
+  (into {}
+        [(autodoc "clojure")
+         (autodoc "incanter" "liebke")
+         (autodoc "algo.generic")
+         (autodoc "algo.monads")
+         (autodoc "core.async")
+         (autodoc "core.cache")
+         (autodoc "core.contracts")
+         (autodoc "core.incubator")
+         (autodoc "core.logic")
+         (autodoc "core.match")
+         (autodoc "core.memoize")
+         (autodoc "core.rrb-vector")
+         (autodoc "core.typed")
+         (autodoc "core.unify")
+         (autodoc "data.codec")
+         (autodoc "data.csv")
+         (autodoc "data.finger-tree")
+         (autodoc "data.generators")
+         (autodoc "data.json")
+         (autodoc "data.priority-map")
+         (autodoc "data.xml")
+         (autodoc "data.zip")
+         (autodoc "java.classpath")
+         (autodoc "java.data")
+         (autodoc "java.jdbc")
+         (autodoc "java.jmx")
+         (autodoc "math.combinatorics")
+         (autodoc "math.numeric-tower")
+         (autodoc "test.generative")
+         (autodoc "tools.analyzer")
+         (autodoc "tools.analyzer.jvm")
+         (autodoc "tools.emitter.jvm")
+         (autodoc "tools.cli")
+         (autodoc "tools.logging")
+         (autodoc "tools.macro")
+         (autodoc "tools.namespace")
+         (autodoc "tools.nrepl")
+         (autodoc "tools.reader")
+         (autodoc "tools.trace")
+         [["hook-test" "tomfaulhaber"]
+          {:cmd ["echo" "got here"] :dir "."}]]))
 
+(defn handle-commit
+  "Handle a commit message, if it's on our list"
+  [name owner commits]
+  (if-let [action (get commit-actions [name owner])]
+    (let [commit-info (map #(vector (.substring (% "id") 0 6)
+                                    ((% "committer") "name")
+                                    (str/split-lines (% "message")))
+                           commits)]
+      (pp/cl-format myout "Received master commit for ~a/~a~%" owner name)
+      (pp/cl-format myout "Commits: ~<~:i~:{~a ~a    ~<~:i~@{~a~^~@:_~}~:>~@:_~}~:>" [commit-info])
+      (run (:cmd action) (:dir action)))
+    (pp/cl-format myout "WARNING: master commit received for unsupported project ~a/~a~%" owner name)))
 
-(defn match-elem
-  "Determine whether a given request, m, matches the action table element, elem."
-  [m elem]
-  (loop [elem elem]
-    (let [ks (first elem)
-          rem (next elem)]
-      (if (nil? rem)
-        ks
-        (when (= (apply get-in m ks []) (first rem))
-          (recur (next rem)))))))
-
-(defn match-table
-  "Match a request, m, against the action-table"
-  [m]
-  (some #(match-elem m %) action-table))
+(defn handle-gh-pages
+  "When a gh-pages branch is updated, we may need to regenerate the master index"
+  [name owner]
+  (if-let [action (get commit-actions [name owner])]
+    (do
+      (pp/cl-format myout "Starting a Clojure master index update because gh-pages was updated for ~a/~a~%" owner name)
+      (pp/cl-format myout "WARNING: Index building is currently disabled, you must run this step by hand.~%")
+      #_(run ["bash" "./run.sh"]  "/home/tom/src/clj/contrib-index"))
+    (pp/cl-format myout "WARNING: gh-pages commit received for unsupported project ~a/~a~%" owner name)))
 
 (defn handle-payload
   "Called when a request is dequeued with the parsed json payload. Sees if the
 request matches anything in the action-table and, if so, executes the associated shell
 command."
   [payload]
-  (pp/pprint payload myout)
-  (pp/cl-format myout "~%")
-  (when-let [params (match-table payload)]
-    ;; The following throws an exception (in 1.1) since ~W doesn't cause myout to get wrapped.
-    ;; Need to test it with clojure.pprint in master and see if it's been fixed (or fix it!)
-    ;;(pp/cl-format myout "matched: ~%~W~%" params)
-    (pp/cl-format myout "matched: ~%") (pp/pprint params myout) (pp/cl-format myout "~%")
-    (pp/cl-format myout "~a~%" (apply shell/sh (concat  (:cmd params) [:dir (:dir params)])))
-    (pp/cl-format myout "Execution complete~%----------------------------------------~%")))
+  (match [payload]
+         [{"repository" {"name" name "owner" {"name" owner}}
+           "commits" commits
+           "ref" "refs/heads/master"}]
+         (handle-commit name owner commits)
+
+         [{"repository" {"name" name "owner" {"name" owner}}
+           "ref" "refs/heads/gh-pages"}]
+         (handle-gh-pages name owner)
+
+         [{"repository" {"name" name "owner" {"name" owner} "commits" commits}
+           "ref" ref}]
+         (pp/cl-format myout "Commit to ignored branch for ~a/~a (ref: ~a)" owner name ref)
+
+         :else
+         (pp/cl-format myout "Payload not understood:~%~w~%" payload))
+  (pp/cl-format myout "Payload processing complete~%----------------------------------------~%"))
 
 (defn hook-server
   "Build a simple webhook server on the specified port. Invokes ring to fill a blocking queue,
