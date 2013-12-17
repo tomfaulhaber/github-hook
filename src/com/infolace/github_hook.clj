@@ -106,6 +106,7 @@ Then it returns the appropriate status and header info to be sent back to the cl
         [(autodoc "clojure")
          (autodoc "incanter" "liebke")
          (autodoc "algo.generic")
+         (autodoc "algo.graph")
          (autodoc "algo.monads")
          (autodoc "core.async")
          (autodoc "core.cache")
