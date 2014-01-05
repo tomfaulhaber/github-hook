@@ -118,6 +118,7 @@ Then it returns the appropriate status and header info to be sent back to the cl
          (autodoc "core.rrb-vector")
          (autodoc "core.typed")
          (autodoc "core.unify")
+         (autodoc "data.avl")
          (autodoc "data.codec")
          (autodoc "data.csv")
          (autodoc "data.finger-tree")
