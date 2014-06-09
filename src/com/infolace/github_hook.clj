@@ -104,7 +104,7 @@ Then it returns the appropriate status and header info to be sent back to the cl
 (def commit-actions
   (into {}
         [(autodoc "clojure")
-         (autodoc "incanter" "liebke")
+         (autodoc "incanter" "incanter")
          (autodoc "algo.generic")
          (autodoc "algo.graph")
          (autodoc "algo.monads")
