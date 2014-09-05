@@ -137,6 +137,7 @@ Then it returns the appropriate status and header info to be sent back to the cl
          (autodoc "test.generative")
          (autodoc "tools.analyzer")
          (autodoc "tools.analyzer.jvm")
+         (autodoc "tools.analyzer.js")
          (autodoc "tools.emitter.jvm")
          (autodoc "tools.cli")
          (autodoc "tools.logging")
